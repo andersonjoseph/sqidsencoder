@@ -70,6 +70,67 @@ func TestEncode(t *testing.T) {
 	}
 }
 
+func TestDencode(t *testing.T) {
+	type encodedUser struct {
+		ID       string `json:"id" sqids:"decode"`
+		Name     string `json:"name"`
+		Username string `json:"username"`
+	}
+
+	type decodedUser struct {
+		ID       int    `json:"id"`
+		Name     string `json:"name"`
+		Username string `json:"username"`
+	}
+
+	type args struct {
+		v any
+	}
+
+	s, err := sqids.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		want    any
+		wantErr bool
+	}{
+		{
+			name: "decode numeric id of the property ID",
+			args: args{v: encodedUser{
+				ID:       encodeIDHelper(1, s, t),
+				Name:     "anderson",
+				Username: "andersonjoseph",
+			}},
+			want: decodedUser{
+				ID:       1,
+				Name:     "anderson",
+				Username: "andersonjoseph",
+			},
+			wantErr: false,
+		},
+	}
+
+	decoder := New(s)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := decodedUser{}
+			err := decoder.Decode(tt.args.v, &res)
+
+			if tt.wantErr != (err != nil) {
+				t.Errorf("Encode error: %s = %v, want %v", tt.name, err, tt.wantErr)
+			}
+
+			if !reflect.DeepEqual(tt.want, res) {
+				t.Errorf("Test failed: %s = %v, want %v", tt.name, res, tt.want)
+			}
+		})
+	}
+}
 
 func encodeIDHelper(id int, s sqidsInterface, t *testing.T) string {
 	t.Helper()

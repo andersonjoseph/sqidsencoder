@@ -20,6 +20,12 @@ func TestEncode(t *testing.T) {
 		Username string `json:"username"`
 	}
 
+	type userWithoutTags struct {
+		ID       int64  `json:"id"`
+		Name     string `json:"name"`
+		Username string `json:"username"`
+	}
+
 	type args struct {
 		v any
 	}
@@ -50,6 +56,18 @@ func TestEncode(t *testing.T) {
 				Username: "andersonjoseph",
 			},
 		},
+		{
+			name: "encoding numeric ID without a tag returns an error",
+			args: args{
+				v: userWithoutTags{
+					Name:     "Anderson",
+					Username: "andersonjoseph",
+					ID:       1,
+				},
+			},
+			want:    encodedUser{},
+			wantErr: true,
+		},
 	}
 
 	encoder := New(s)
@@ -58,6 +76,10 @@ func TestEncode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			res := encodedUser{}
 			err := encoder.Encode(tt.args.v, &res)
+
+			if err != nil {
+				t.Log(err)
+			}
 
 			if tt.wantErr != (err != nil) {
 				t.Errorf("Encode error: %s = %v, want %v", tt.name, err, tt.wantErr)
@@ -79,6 +101,12 @@ func TestDencode(t *testing.T) {
 
 	type decodedUser struct {
 		ID       int    `json:"id"`
+		Name     string `json:"name"`
+		Username string `json:"username"`
+	}
+
+	type encodedUserWithoutTag struct {
+		ID       string `json:"id"`
 		Name     string `json:"name"`
 		Username string `json:"username"`
 	}
@@ -112,6 +140,16 @@ func TestDencode(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "decoding numeric ID without a tag returns an error",
+			args: args{v: encodedUserWithoutTag{
+				ID:       encodeIDHelper(1, s, t),
+				Name:     "anderson",
+				Username: "andersonjoseph",
+			}},
+			want:    decodedUser{},
+			wantErr: true,
+		},
 	}
 
 	decoder := New(s)
@@ -120,6 +158,10 @@ func TestDencode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			res := decodedUser{}
 			err := decoder.Decode(tt.args.v, &res)
+
+			if err != nil {
+				t.Log(err)
+			}
 
 			if tt.wantErr != (err != nil) {
 				t.Errorf("Encode error: %s = %v, want %v", tt.name, err, tt.wantErr)

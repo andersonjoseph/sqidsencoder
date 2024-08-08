@@ -1,0 +1,13 @@
+services:
+  sqidsencoder_env:
+    profiles: [dev]
+    container_name: sqidsencoder_env
+    tty: true
+    stdin_open: true
+    image: sqidsencoder:0.0.1
+    build:
+      context: .
+    volumes:
+      - .:/usr/src/app
+      - ~/.cache:/root/.cache/go-build
+      - ~/go/pkg/mod:/go/pkg/mod

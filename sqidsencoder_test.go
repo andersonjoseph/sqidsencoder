@@ -116,6 +116,23 @@ func TestEncode(t *testing.T) {
 			}{},
 			wantErr: true,
 		},
+		{
+			name: "passing a dst without the decoded property returns an error",
+			args: args{
+
+				src: struct {
+					ID       uint64 `sqids:"encode"`
+					Username string
+				}{},
+				dst: &struct {
+					Username string
+				}{},
+			},
+			want: &struct {
+				Username string
+			}{},
+			wantErr: true,
+		},
 	}
 
 	encoder := New(s)

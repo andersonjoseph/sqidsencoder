@@ -41,7 +41,11 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 
 	srcVal := reflect.ValueOf(src)
 
-	if reflect.ValueOf(dst).Kind() != reflect.Pointer {
+	if srcVal.Kind() != reflect.Struct {
+		return fmt.Errorf("src must be a struct")
+	}
+
+	if reflect.ValueOf(dst).Kind() != reflect.Pointer || reflect.ValueOf(dst).Elem().Kind() != reflect.Struct {
 		return fmt.Errorf("dst must be a pointer to a struct")
 	}
 

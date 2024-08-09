@@ -66,7 +66,7 @@ func TestEncode(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "pass a non pointer struct as dst returns an error",
+			name: "passing a non pointer struct as dst returns an error",
 			args: args{
 				src: struct {
 					ID       uint64
@@ -78,6 +78,21 @@ func TestEncode(t *testing.T) {
 				}{},
 			},
 			want: struct {
+				ID       string
+				Username string
+			}{},
+			wantErr: true,
+		},
+		{
+			name: "passing a non struct as src returns an error",
+			args: args{
+				src: 123,
+				dst: &struct {
+					ID       string
+					Username string
+				}{},
+			},
+			want: &struct {
 				ID       string
 				Username string
 			}{},

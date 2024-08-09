@@ -98,6 +98,24 @@ func TestEncode(t *testing.T) {
 			}{},
 			wantErr: true,
 		},
+		{
+			name: "passing a dst struct with a encoded field as non string",
+			args: args{
+				src: struct {
+					ID       uint64 `sqids:"encode"`
+					Username string
+				}{},
+				dst: &struct {
+					ID       uint64
+					Username string
+				}{},
+			},
+			want: &struct {
+				ID       uint64
+				Username string
+			}{},
+			wantErr: true,
+		},
 	}
 
 	encoder := New(s)

@@ -6,3 +6,9 @@ stop-env:
 
 shell:
 	docker compose exec sqidsencoder_env bash
+
+test:
+	docker compose exec sqidsencoder_env go test ./...
+
+fmt:
+	docker compose exec sqidsencoder_env go fmt ./...

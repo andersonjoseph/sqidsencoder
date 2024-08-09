@@ -38,7 +38,6 @@ func (enc sqidsencoder) Decode(src any, dst any) error {
 
 func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) error {
 	srcType := reflect.TypeOf(src)
-
 	srcVal := reflect.ValueOf(src)
 
 	if srcVal.Kind() != reflect.Struct {
@@ -57,7 +56,7 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 
 		if tagOp, _ := srcType.Field(i).Tag.Lookup(SQIDS_TAG); encoderOperation(tagOp) == op {
 			if err := enc.processField(srcField, dstField, encoderOperation(tagOp)); err != nil {
-				return err
+				return fmt.Errorf("error while processing field %s: %w", srcType.Field(i).Name, err)
 			}
 			continue
 		}
@@ -67,7 +66,7 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 			srcTypeName := srcField.Type().Name()
 			dstTypeName := dstField.Type().Name()
 
-			return typeAssigmentError(fieldName, srcTypeName, dstTypeName)
+			return fmt.Errorf("field %s(%s) is not assignable to %s(%s)", fieldName, srcTypeName, fieldName, dstTypeName)
 		}
 
 		dstField.Set(srcField)
@@ -94,12 +93,20 @@ func (enc sqidsencoder) encodeField(field reflect.Value, id uint64) error {
 		return err
 	}
 
+	if !reflect.TypeOf(encodedID).AssignableTo(field.Type()) {
+		return fmt.Errorf("type uint64 is not assignable to %s", field.Type().Name())
+	}
+
 	field.SetString(encodedID)
 	return nil
 }
 
 func (enc sqidsencoder) decodeField(field reflect.Value, id string) error {
 	decodedID := enc.sqids.Decode(id)[0]
+
+	if !reflect.TypeOf(decodedID).AssignableTo(field.Type()) {
+		return fmt.Errorf("type uint64 is not assignable to %s", field.Type().Name())
+	}
 
 	field.SetUint(decodedID)
 	return nil

@@ -5,6 +5,14 @@ import (
 	"reflect"
 )
 
+type encoderOperation string
+
+const (
+	SQIDS_TAG                  = "sqids"
+	ENCODE    encoderOperation = "encode"
+	DECODE    encoderOperation = "decode"
+)
+
 type sqidsInterface interface {
 	Encode(numbers []uint64) (string, error)
 	Decode(id string) []uint64
@@ -21,67 +29,69 @@ func New(s sqidsInterface) sqidsencoder {
 }
 
 func (enc sqidsencoder) Encode(src any, dst any) error {
-	srcType := reflect.TypeOf(src)
-	srcVal := reflect.ValueOf(src)
+	return enc.buildDstStruct(src, dst, ENCODE)
+}
 
+func (enc sqidsencoder) Decode(src any, dst any) error {
+	return enc.buildDstStruct(src, dst, DECODE)
+}
+
+func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) error {
+	srcType := reflect.TypeOf(src)
+
+	srcVal := reflect.ValueOf(src)
 	destVal := reflect.ValueOf(dst).Elem()
 
-	for i := 0; i < srcType.NumField(); i++ {
-		currentDstField := destVal.FieldByName(srcType.Field(i).Name)
-		currentSrcField := srcVal.FieldByName(srcType.Field(i).Name)
+	for i := 0; i < srcVal.NumField(); i++ {
+		dstField := destVal.FieldByName(srcType.Field(i).Name)
+		srcField := srcVal.FieldByName(srcType.Field(i).Name)
 
-		if op, ok := srcType.Field(i).Tag.Lookup("sqids"); ok && op == "encode" {
-			encodedID, err := enc.sqids.Encode([]uint64{uint64(srcVal.Field(i).Int())})
-
-			if err != nil {
+		if tagOp, _ := srcType.Field(i).Tag.Lookup(SQIDS_TAG); encoderOperation(tagOp) == op {
+			if err := enc.processField(srcField, dstField, encoderOperation(tagOp)); err != nil {
 				return err
 			}
-
-			currentDstField.SetString(encodedID)
 			continue
 		}
 
-		if !currentSrcField.Type().AssignableTo(currentDstField.Type()) {
+		if !srcField.Type().AssignableTo(dstField.Type()) {
 			fieldName := srcType.Field(i).Name
-			srcTypeName := currentSrcField.Type().Name()
-			dstTypeName := currentDstField.Type().Name()
-			return fmt.Errorf("%s with type: %s is not assignable to %s with type: %s.", fieldName, srcTypeName, fieldName, dstTypeName)
+			srcTypeName := srcField.Type().Name()
+			dstTypeName := dstField.Type().Name()
+
+			return typeAssigmentError(fieldName, srcTypeName, dstTypeName)
 		}
 
-		currentDstField.Set(currentSrcField)
+		dstField.Set(srcField)
 	}
 
 	return nil
 }
 
-func (enc sqidsencoder) Decode(src any, dst any) error {
-	srcType := reflect.TypeOf(src)
-	srcVal := reflect.ValueOf(src)
+func (enc sqidsencoder) processField(srcField, dstField reflect.Value, op encoderOperation) error {
+	switch op {
+	case ENCODE:
+		return enc.encodeField(dstField, srcField.Int())
+	case DECODE:
+		return enc.decodeField(dstField, srcField.String())
+	default:
+		return fmt.Errorf("unknown operation: %s", op)
+	}
+}
 
-	destVal := reflect.ValueOf(dst).Elem()
+func (enc sqidsencoder) encodeField(field reflect.Value, id int64) error {
+	encodedID, err := enc.sqids.Encode([]uint64{uint64(id)})
 
-	for i := 0; i < srcType.NumField(); i++ {
-		fieldName := srcType.Field(i).Name
-
-		if op, ok := srcType.Field(i).Tag.Lookup("sqids"); ok && op == "decode" {
-			decodedID := enc.sqids.Decode(srcVal.Field(i).String())[0]
-
-			destVal.FieldByName(fieldName).SetInt(int64(decodedID))
-			continue
-		}
-
-		currentDstField := destVal.FieldByName(srcType.Field(i).Name)
-		currentSrcField := srcVal.FieldByName(srcType.Field(i).Name)
-
-		if !currentSrcField.Type().AssignableTo(currentDstField.Type()) {
-			fieldName := srcType.Field(i).Name
-			srcTypeName := currentSrcField.Type().Name()
-			dstTypeName := currentDstField.Type().Name()
-			return fmt.Errorf("%s with type: %s is not assignable to %s with type: %s.", fieldName, srcTypeName, fieldName, dstTypeName)
-		}
-
-		destVal.FieldByName(fieldName).Set(srcVal.FieldByName(fieldName))
+	if err != nil {
+		return err
 	}
 
+	field.SetString(encodedID)
+	return nil
+}
+
+func (enc sqidsencoder) decodeField(field reflect.Value, id string) error {
+	decodedID := enc.sqids.Decode(id)[0]
+
+	field.SetInt(int64(decodedID))
 	return nil
 }

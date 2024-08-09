@@ -40,6 +40,11 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 	srcType := reflect.TypeOf(src)
 
 	srcVal := reflect.ValueOf(src)
+
+	if reflect.ValueOf(dst).Kind() != reflect.Pointer {
+		return fmt.Errorf("dst must be a pointer to a struct")
+	}
+
 	destVal := reflect.ValueOf(dst).Elem()
 
 	for i := 0; i < srcVal.NumField(); i++ {

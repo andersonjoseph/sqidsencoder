@@ -70,7 +70,7 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 func (enc sqidsencoder) processField(srcField, dstField reflect.Value, op encoderOperation) error {
 	switch op {
 	case ENCODE:
-		return enc.encodeField(dstField, srcField.Int())
+		return enc.encodeField(dstField, srcField.Uint())
 	case DECODE:
 		return enc.decodeField(dstField, srcField.String())
 	default:
@@ -78,8 +78,8 @@ func (enc sqidsencoder) processField(srcField, dstField reflect.Value, op encode
 	}
 }
 
-func (enc sqidsencoder) encodeField(field reflect.Value, id int64) error {
-	encodedID, err := enc.sqids.Encode([]uint64{uint64(id)})
+func (enc sqidsencoder) encodeField(field reflect.Value, id uint64) error {
+	encodedID, err := enc.sqids.Encode([]uint64{id})
 
 	if err != nil {
 		return err
@@ -92,6 +92,6 @@ func (enc sqidsencoder) encodeField(field reflect.Value, id int64) error {
 func (enc sqidsencoder) decodeField(field reflect.Value, id string) error {
 	decodedID := enc.sqids.Decode(id)[0]
 
-	field.SetInt(int64(decodedID))
+	field.SetUint(decodedID)
 	return nil
 }

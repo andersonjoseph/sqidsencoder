@@ -9,7 +9,7 @@ import (
 
 func TestEncode(t *testing.T) {
 	type user struct {
-		ID       int64  `json:"id" sqids:"encode"`
+		ID       uint64 `json:"id" sqids:"encode"`
 		Name     string `json:"name"`
 		Username string `json:"username"`
 	}
@@ -21,7 +21,7 @@ func TestEncode(t *testing.T) {
 	}
 
 	type userWithoutTags struct {
-		ID       int64  `json:"id"`
+		ID       uint64 `json:"id"`
 		Name     string `json:"name"`
 		Username string `json:"username"`
 	}
@@ -100,7 +100,7 @@ func TestDencode(t *testing.T) {
 	}
 
 	type decodedUser struct {
-		ID       int    `json:"id"`
+		ID       uint64 `json:"id"`
 		Name     string `json:"name"`
 		Username string `json:"username"`
 	}

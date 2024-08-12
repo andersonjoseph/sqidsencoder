@@ -48,78 +48,91 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 		return fmt.Errorf("dst must be a pointer to a struct")
 	}
 
-	destVal := reflect.ValueOf(dst).Elem()
+	dstVal := reflect.ValueOf(dst).Elem()
 
 	for i := 0; i < srcVal.NumField(); i++ {
 		srcField := srcVal.FieldByName(srcType.Field(i).Name)
-		dstField := destVal.FieldByName(srcType.Field(i).Name)
+		dstField := dstVal.FieldByName(srcType.Field(i).Name)
 
 		if dstField == (reflect.Value{}) {
 			return fmt.Errorf("field %s is not present on dst struct", srcType.Field(i).Name)
 		}
 
+		tagOp, hasTag := srcType.Field(i).Tag.Lookup(SQIDS_TAG)
+		if hasTag && encoderOperation(tagOp) == op {
+			if err := enc.processTaggedField(srcField, dstField, op); err != nil {
+				return fmt.Errorf("error while processing tagged field %s: %w", srcType.Field(i).Name, err)
+			}
+			continue
+		}
+
 		if srcField.Kind() == reflect.Struct {
-			srcNestedStruct := srcField.Interface()
-			dstNestedStruct := reflect.New(dstField.Type()).Interface()
-
-			if err := enc.buildDstStruct(srcNestedStruct, dstNestedStruct, op); err != nil {
-				return err
-			}
-
-			dstField.Set(reflect.ValueOf(dstNestedStruct).Elem())
-			continue
-		}
-
-		if tagOp, _ := srcType.Field(i).Tag.Lookup(SQIDS_TAG); encoderOperation(tagOp) == op {
-			if err := enc.processField(srcField, dstField, encoderOperation(tagOp)); err != nil {
-				return fmt.Errorf("error while processing field %s: %w", srcType.Field(i).Name, err)
+			if err := enc.processStruct(srcField, dstField, op); err != nil {
+				return fmt.Errorf("error while processing struct field %s: %w", srcType.Field(i).Name, err)
 			}
 			continue
 		}
 
-		if !srcField.Type().AssignableTo(dstField.Type()) {
-			fieldName := srcType.Field(i).Name
-			srcTypeName := srcField.Type().Name()
-			dstTypeName := dstField.Type().Name()
-
-			return fmt.Errorf("field %s(%s) is not assignable to %s(%s)", fieldName, srcTypeName, fieldName, dstTypeName)
+		if err := assignField(srcField, dstField, srcType.Field(i).Name); err != nil {
+			return err
 		}
-
-		dstField.Set(srcField)
 	}
 
 	return nil
 }
 
+func (enc sqidsencoder) processStruct(srcStruct, dstStruct reflect.Value, op encoderOperation) error {
+	srcNestedStruct := srcStruct.Interface()
+	dstNestedStruct := reflect.New(dstStruct.Type()).Interface()
+
+	if err := enc.buildDstStruct(srcNestedStruct, dstNestedStruct, op); err != nil {
+		return err
+	}
+
+	dstStruct.Set(reflect.ValueOf(dstNestedStruct).Elem())
+
+	return nil
+}
+
+func (enc sqidsencoder) processTaggedField(srcField, dstField reflect.Value, op encoderOperation) error {
+	if srcField.Kind() == reflect.Slice {
+		return enc.processSlice(srcField, dstField, op)
+	}
+
+	return enc.processField(srcField, dstField, op)
+}
+
+func (enc sqidsencoder) processSlice(srcSliceField, dstSlicefield reflect.Value, op encoderOperation) error {
+	switch op {
+	case ENCODE:
+		ids, ok := srcSliceField.Interface().([]uint64)
+		if !ok {
+			return fmt.Errorf("field is not []uint64")
+		}
+		return enc.encodeSlice(dstSlicefield, ids)
+
+	case DECODE:
+		ids, ok := srcSliceField.Interface().([]string)
+		if !ok {
+			return fmt.Errorf("field is not []string")
+		}
+
+		return enc.decodeSlice(dstSlicefield, ids)
+
+	default:
+		return fmt.Errorf("unknown operation: %s", op)
+	}
+}
+
 func (enc sqidsencoder) processField(srcField, dstField reflect.Value, op encoderOperation) error {
 	switch op {
 	case ENCODE:
-		if srcField.Kind() == reflect.Slice {
-			ids, ok := srcField.Interface().([]uint64)
-
-			if !ok {
-				return fmt.Errorf("field is not []uint64")
-			}
-
-			return enc.encodeSliceField(dstField, ids)
-		}
-
 		if srcField.Kind() != reflect.Uint64 {
 			return fmt.Errorf("field is not uint64")
 		}
 		return enc.encodeField(dstField, srcField.Uint())
 
 	case DECODE:
-		if srcField.Kind() == reflect.Slice {
-			ids, ok := srcField.Interface().([]string)
-
-			if !ok {
-				return fmt.Errorf("field is not []string")
-			}
-
-			return enc.decodeSliceField(dstField, ids)
-		}
-
 		if srcField.Kind() != reflect.String {
 			return fmt.Errorf("field is not string")
 		}
@@ -145,7 +158,7 @@ func (enc sqidsencoder) encodeField(field reflect.Value, id uint64) error {
 	return nil
 }
 
-func (enc sqidsencoder) encodeSliceField(field reflect.Value, ids []uint64) error {
+func (enc sqidsencoder) encodeSlice(field reflect.Value, ids []uint64) error {
 	encodedSlice := make([]string, len(ids))
 
 	if !reflect.TypeOf(encodedSlice).AssignableTo(field.Type()) {
@@ -177,7 +190,7 @@ func (enc sqidsencoder) decodeField(field reflect.Value, id string) error {
 	return nil
 }
 
-func (enc sqidsencoder) decodeSliceField(field reflect.Value, ids []string) error {
+func (enc sqidsencoder) decodeSlice(field reflect.Value, ids []string) error {
 	decodedSlice := make([]uint64, len(ids))
 
 	if !reflect.TypeOf(decodedSlice).AssignableTo(field.Type()) {
@@ -191,5 +204,20 @@ func (enc sqidsencoder) decodeSliceField(field reflect.Value, ids []string) erro
 	}
 
 	field.Set(reflect.ValueOf(decodedSlice))
+	return nil
+}
+
+func assignField(srcField, dstField reflect.Value, fieldName string) error {
+	if !srcField.Type().AssignableTo(dstField.Type()) {
+		return fmt.Errorf(
+			"field src.%s(%s) is not assignable to dst.%s(%s)",
+			fieldName,
+			srcField.Type().Name(),
+			fieldName,
+			dstField.Type().Name(),
+		)
+	}
+
+	dstField.Set(srcField)
 	return nil
 }

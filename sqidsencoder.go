@@ -58,6 +58,18 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 			return fmt.Errorf("field %s is not present on dst struct", srcType.Field(i).Name)
 		}
 
+		if srcField.Kind() == reflect.Struct {
+			srcNestedStruct := srcField.Interface()
+			dstNestedStruct := reflect.New(dstField.Type()).Interface()
+
+			if err := enc.buildDstStruct(srcNestedStruct, dstNestedStruct, op); err != nil {
+				return err
+			}
+
+			dstField.Set(reflect.ValueOf(dstNestedStruct).Elem())
+			continue
+		}
+
 		if tagOp, _ := srcType.Field(i).Tag.Lookup(SQIDS_TAG); encoderOperation(tagOp) == op {
 			if err := enc.processField(srcField, dstField, encoderOperation(tagOp)); err != nil {
 				return fmt.Errorf("error while processing field %s: %w", srcType.Field(i).Name, err)

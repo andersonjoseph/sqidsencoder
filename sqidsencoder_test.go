@@ -133,6 +133,51 @@ func TestEncode(t *testing.T) {
 			}{},
 			wantErr: true,
 		},
+		{
+			name: "encoding ID in nested structs",
+			args: args{
+				src: struct {
+					ID   uint64 `sqids:"encode"`
+					Item struct {
+						ID   uint64 `sqids:"encode"`
+						Name string
+					}
+				}{
+					ID: 1,
+					Item: struct {
+						ID   uint64 `sqids:"encode"`
+						Name string
+					}{
+						ID:   1,
+						Name: "cool item",
+					},
+				},
+				dst: &struct {
+					ID   string
+					Item struct {
+						ID   string
+						Name string
+					}
+				}{},
+			},
+			want: &struct {
+				ID   string
+				Item struct {
+					ID   string
+					Name string
+				}
+			}{
+				ID: encodeIDHelper(t, s, 1),
+				Item: struct {
+					ID   string
+					Name string
+				}{
+					ID:   encodeIDHelper(t, s, 1),
+					Name: "cool item",
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	encoder := New(s)

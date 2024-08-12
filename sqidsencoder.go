@@ -171,7 +171,11 @@ func (enc sqidsencoder) encodeSlice(srcField, dstField reflect.Value) error {
 }
 
 func (enc sqidsencoder) decodeField(field reflect.Value, id string) error {
-	decodedID := enc.sqids.Decode(id)[0]
+	res := enc.sqids.Decode(id)
+	if len(res) == 0 {
+		return fmt.Errorf("invalid id: %s", id)
+	}
+	decodedID := res[0]
 
 	if !reflect.TypeOf(decodedID).AssignableTo(field.Type()) {
 		return fmt.Errorf("type uint64 is not assignable to %s", field.Type().Name())
@@ -195,7 +199,7 @@ func (enc sqidsencoder) decodeSlice(srcField, dstField reflect.Value) error {
 
 	if srcField.Type().Elem().Kind() == reflect.Struct {
 		for i := 0; i < srcField.Len(); i++ {
-			if err := enc.processStruct(decodedSlice.Index(i), srcField.Index(i), DECODE); err != nil {
+			if err := enc.processStruct(srcField.Index(i), decodedSlice.Index(i), DECODE); err != nil {
 				return err
 			}
 		}

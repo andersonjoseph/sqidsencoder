@@ -94,8 +94,15 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 func (enc sqidsencoder) processField(srcField, dstField reflect.Value, op encoderOperation) error {
 	switch op {
 	case ENCODE:
+		if srcField.Kind() != reflect.Uint64 {
+			return fmt.Errorf("field is not uint64")
+		}
 		return enc.encodeField(dstField, srcField.Uint())
+
 	case DECODE:
+		if srcField.Kind() != reflect.String {
+			return fmt.Errorf("field is not string")
+		}
 		return enc.decodeField(dstField, srcField.String())
 	default:
 		return fmt.Errorf("unknown operation: %s", op)

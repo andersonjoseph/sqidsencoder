@@ -178,6 +178,27 @@ func TestEncode(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "ID to encode not int",
+			args: args{
+				src: struct {
+					ID       string `sqids:"encode"`
+					Username string
+				}{
+					ID:       "1",
+					Username: "andersonjoseph",
+				},
+				dst: &struct {
+					ID       string
+					Username string
+				}{},
+			},
+			want: &struct {
+				ID       string
+				Username string
+			}{},
+			wantErr: true,
+		},
 	}
 
 	encoder := New(s)

@@ -29,14 +29,14 @@ func New(s sqidsInterface) sqidsencoder {
 }
 
 func (enc sqidsencoder) Encode(src any, dst any) error {
-	return enc.buildDstStruct(src, dst, ENCODE)
+	return enc.processStructFields(src, dst, ENCODE)
 }
 
 func (enc sqidsencoder) Decode(src any, dst any) error {
-	return enc.buildDstStruct(src, dst, DECODE)
+	return enc.processStructFields(src, dst, DECODE)
 }
 
-func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) error {
+func (enc sqidsencoder) processStructFields(src any, dst any, op encoderOperation) error {
 	srcType := reflect.TypeOf(src)
 	srcVal := reflect.ValueOf(src)
 
@@ -60,15 +60,8 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 
 		tagOp, hasTag := srcType.Field(i).Tag.Lookup(SQIDS_TAG)
 		if hasTag && encoderOperation(tagOp) == op {
-			if err := enc.processTaggedField(srcField, dstField, op); err != nil {
-				return fmt.Errorf("error while processing tagged field %s: %w", srcType.Field(i).Name, err)
-			}
-			continue
-		}
-
-		if srcField.Kind() == reflect.Struct {
-			if err := enc.processStruct(srcField, dstField, op); err != nil {
-				return fmt.Errorf("error while processing struct field %s: %w", srcType.Field(i).Name, err)
+			if err := enc.processField(srcField, dstField, op); err != nil {
+				return fmt.Errorf("error while processing field %s: %w", srcType.Field(i).Name, err)
 			}
 			continue
 		}
@@ -81,25 +74,29 @@ func (enc sqidsencoder) buildDstStruct(src any, dst any, op encoderOperation) er
 	return nil
 }
 
+func (enc sqidsencoder) processField(srcField, dstField reflect.Value, op encoderOperation) error {
+	switch srcField.Kind() {
+	case reflect.Slice:
+		return enc.processSlice(srcField, dstField, op)
+	case reflect.Struct:
+		return enc.processStruct(srcField, dstField, op)
+
+	default:
+		return enc.processPrimitive(srcField, dstField, op)
+	}
+}
+
 func (enc sqidsencoder) processStruct(srcStruct, dstStruct reflect.Value, op encoderOperation) error {
 	srcNestedStruct := srcStruct.Interface()
 	dstNestedStruct := reflect.New(dstStruct.Type()).Interface()
 
-	if err := enc.buildDstStruct(srcNestedStruct, dstNestedStruct, op); err != nil {
+	if err := enc.processStructFields(srcNestedStruct, dstNestedStruct, op); err != nil {
 		return err
 	}
 
 	dstStruct.Set(reflect.ValueOf(dstNestedStruct).Elem())
 
 	return nil
-}
-
-func (enc sqidsencoder) processTaggedField(srcField, dstField reflect.Value, op encoderOperation) error {
-	if srcField.Kind() == reflect.Slice {
-		return enc.processSlice(srcField, dstField, op)
-	}
-
-	return enc.processField(srcField, dstField, op)
 }
 
 func (enc sqidsencoder) processSlice(srcSliceField, dstSliceField reflect.Value, op encoderOperation) error {
@@ -115,7 +112,7 @@ func (enc sqidsencoder) processSlice(srcSliceField, dstSliceField reflect.Value,
 	}
 }
 
-func (enc sqidsencoder) processField(srcField, dstField reflect.Value, op encoderOperation) error {
+func (enc sqidsencoder) processPrimitive(srcField, dstField reflect.Value, op encoderOperation) error {
 	switch op {
 	case ENCODE:
 		if srcField.Kind() != reflect.Uint64 {

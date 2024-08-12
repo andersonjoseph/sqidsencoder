@@ -141,7 +141,7 @@ func TestEncode(t *testing.T) {
 					Item struct {
 						ID   uint64 `sqids:"encode"`
 						Name string
-					}
+					} `sqids:"encode"`
 				}{
 					ID: 1,
 					Item: struct {

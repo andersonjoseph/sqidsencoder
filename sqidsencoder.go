@@ -102,22 +102,13 @@ func (enc sqidsencoder) processTaggedField(srcField, dstField reflect.Value, op 
 	return enc.processField(srcField, dstField, op)
 }
 
-func (enc sqidsencoder) processSlice(srcSliceField, dstSlicefield reflect.Value, op encoderOperation) error {
+func (enc sqidsencoder) processSlice(srcSliceField, dstSliceField reflect.Value, op encoderOperation) error {
 	switch op {
 	case ENCODE:
-		ids, ok := srcSliceField.Interface().([]uint64)
-		if !ok {
-			return fmt.Errorf("field is not []uint64")
-		}
-		return enc.encodeSlice(dstSlicefield, ids)
+		return enc.encodeSlice(srcSliceField, dstSliceField)
 
 	case DECODE:
-		ids, ok := srcSliceField.Interface().([]string)
-		if !ok {
-			return fmt.Errorf("field is not []string")
-		}
-
-		return enc.decodeSlice(dstSlicefield, ids)
+		return enc.decodeSlice(srcSliceField, dstSliceField)
 
 	default:
 		return fmt.Errorf("unknown operation: %s", op)
@@ -158,24 +149,27 @@ func (enc sqidsencoder) encodeField(field reflect.Value, id uint64) error {
 	return nil
 }
 
-func (enc sqidsencoder) encodeSlice(field reflect.Value, ids []uint64) error {
-	encodedSlice := make([]string, len(ids))
+func (enc sqidsencoder) encodeSlice(srcField, dstField reflect.Value) error {
+	encodedSlice := reflect.MakeSlice(dstField.Type(), srcField.Cap(), srcField.Cap())
 
-	if !reflect.TypeOf(encodedSlice).AssignableTo(field.Type()) {
-		return fmt.Errorf("type []uint64 is not assignable to %s", field.Type().Name())
-	}
-
-	for i := range ids {
-		encodedID, err := enc.sqids.Encode([]uint64{ids[i]})
-
-		if err != nil {
-			return err
+	if srcField.Type().Elem().Kind() == reflect.Uint64 {
+		for i := 0; i < srcField.Len(); i++ {
+			if err := enc.encodeField(encodedSlice.Index(i), srcField.Index(i).Uint()); err != nil {
+				return err
+			}
 		}
-
-		encodedSlice[i] = encodedID
+		dstField.Set(encodedSlice)
 	}
 
-	field.Set(reflect.ValueOf(encodedSlice))
+	if srcField.Type().Elem().Kind() == reflect.Struct {
+		for i := 0; i < srcField.Len(); i++ {
+			if err := enc.processStruct(srcField.Index(i), encodedSlice.Index(i), ENCODE); err != nil {
+				return err
+			}
+		}
+		dstField.Set(encodedSlice)
+	}
+
 	return nil
 }
 
@@ -190,20 +184,27 @@ func (enc sqidsencoder) decodeField(field reflect.Value, id string) error {
 	return nil
 }
 
-func (enc sqidsencoder) decodeSlice(field reflect.Value, ids []string) error {
-	decodedSlice := make([]uint64, len(ids))
+func (enc sqidsencoder) decodeSlice(srcField, dstField reflect.Value) error {
+	decodedSlice := reflect.MakeSlice(dstField.Type(), srcField.Cap(), srcField.Cap())
 
-	if !reflect.TypeOf(decodedSlice).AssignableTo(field.Type()) {
-		return fmt.Errorf("type []uint64 is not assignable to %s", field.Type().Name())
+	if srcField.Type().Elem().Kind() == reflect.String {
+		for i := 0; i < srcField.Len(); i++ {
+			if err := enc.decodeField(decodedSlice.Index(i), srcField.Index(i).String()); err != nil {
+				return err
+			}
+		}
+		dstField.Set(decodedSlice)
 	}
 
-	for i := range ids {
-		encodedID := enc.sqids.Decode(ids[i])[0]
-
-		decodedSlice[i] = encodedID
+	if srcField.Type().Elem().Kind() == reflect.Struct {
+		for i := 0; i < srcField.Len(); i++ {
+			if err := enc.processStruct(decodedSlice.Index(i), srcField.Index(i), DECODE); err != nil {
+				return err
+			}
+		}
+		dstField.Set(decodedSlice)
 	}
 
-	field.Set(reflect.ValueOf(decodedSlice))
 	return nil
 }
 

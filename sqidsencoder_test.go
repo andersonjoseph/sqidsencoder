@@ -218,6 +218,37 @@ func TestEncode(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "encoding slice of structs",
+			args: args{
+				src: struct {
+					Items []struct {
+						ID uint64 `sqids:"encode"`
+					} `sqids:"encode"`
+				}{
+					Items: []struct {
+						ID uint64 `sqids:"encode"`
+					}{
+						{ID: 1},
+						{ID: 2},
+						{ID: 3},
+					},
+				},
+				dst: &struct {
+					Items []struct{ ID string }
+				}{},
+			},
+			want: &struct {
+				Items []struct{ ID string }
+			}{
+				Items: []struct{ ID string }{
+					{ID: encodeIDHelper(t, s, 1)},
+					{ID: encodeIDHelper(t, s, 2)},
+					{ID: encodeIDHelper(t, s, 3)},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	encoder := New(s)

@@ -1,4 +1,4 @@
-module github.com/andersonjoseph/sqids-encoder
+module github.com/andersonjoseph/sqidsencoder
 
 go 1.22.2
 

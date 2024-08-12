@@ -199,6 +199,25 @@ func TestEncode(t *testing.T) {
 			}{},
 			wantErr: true,
 		},
+		{
+			name: "encoding slices",
+			args: args{
+				src: struct {
+					ID []uint64 `sqids:"encode"`
+				}{
+					ID: []uint64{1, 2, 3},
+				},
+				dst: &struct {
+					ID []string
+				}{},
+			},
+			want: &struct {
+				ID []string
+			}{
+				ID: encodeIDsHelper(t, s, []uint64{1, 2, 3}),
+			},
+			wantErr: false,
+		},
 	}
 
 	encoder := New(s)
@@ -286,10 +305,22 @@ func TestDecode(t *testing.T) {
 	}
 }
 
-func encodeIDHelper(t *testing.T, s sqidsInterface, id int) string {
+func encodeIDsHelper(t *testing.T, s sqidsInterface, ids []uint64) []string {
 	t.Helper()
 
-	r, e := s.Encode([]uint64{uint64(id)})
+	out := make([]string, len(ids))
+
+	for i := range ids {
+		out[i] = encodeIDHelper(t, s, ids[i])
+	}
+
+	return out
+}
+
+func encodeIDHelper(t *testing.T, s sqidsInterface, id uint64) string {
+	t.Helper()
+
+	r, e := s.Encode([]uint64{id})
 
 	if e != nil {
 		t.Fatal(e)

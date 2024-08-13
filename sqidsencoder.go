@@ -1,6 +1,7 @@
 package sqidsencoder
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 )
@@ -11,6 +12,12 @@ const (
 	SQIDS_TAG                  = "sqids"
 	ENCODE    encoderOperation = "encode"
 	DECODE    encoderOperation = "decode"
+)
+
+var (
+	ErrInvalidInput = errors.New("validation error")
+	ErrType         = errors.New("type error")
+	ErrInvalidID    = errors.New("invalid ID")
 )
 
 type sqidsInterface interface {
@@ -41,11 +48,11 @@ func (enc sqidsencoder) processStructFields(src any, dst any, op encoderOperatio
 	srcVal := reflect.ValueOf(src)
 
 	if srcVal.Kind() != reflect.Struct {
-		return fmt.Errorf("src must be a struct")
+		return fmt.Errorf("%w: src must be a struct", ErrInvalidInput)
 	}
 
 	if reflect.ValueOf(dst).Kind() != reflect.Pointer || reflect.ValueOf(dst).Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("dst must be a pointer to a struct")
+		return fmt.Errorf("%w: dst must be a pointer to a struct", ErrInvalidInput)
 	}
 
 	dstVal := reflect.ValueOf(dst).Elem()
@@ -55,7 +62,7 @@ func (enc sqidsencoder) processStructFields(src any, dst any, op encoderOperatio
 		dstField := dstVal.FieldByName(srcType.Field(i).Name)
 
 		if dstField == (reflect.Value{}) {
-			return fmt.Errorf("field %s is not present on dst struct", srcType.Field(i).Name)
+			return fmt.Errorf("%w: field %s is not present on dst struct", ErrInvalidInput, srcType.Field(i).Name)
 		}
 
 		tagOp, hasTag := srcType.Field(i).Tag.Lookup(SQIDS_TAG)
@@ -116,13 +123,13 @@ func (enc sqidsencoder) processPrimitive(srcField, dstField reflect.Value, op en
 	switch op {
 	case ENCODE:
 		if srcField.Kind() != reflect.Uint64 {
-			return fmt.Errorf("field is not uint64")
+			return fmt.Errorf("%w: field is not uint64", ErrType)
 		}
 		return enc.encodeField(dstField, srcField.Uint())
 
 	case DECODE:
 		if srcField.Kind() != reflect.String {
-			return fmt.Errorf("field is not string")
+			return fmt.Errorf("%w: field is not string", ErrType)
 		}
 		return enc.decodeField(dstField, srcField.String())
 
@@ -168,7 +175,7 @@ func (enc sqidsencoder) encodeSlice(srcField, dstField reflect.Value) error {
 func (enc sqidsencoder) decodeField(field reflect.Value, id string) error {
 	res := enc.sqids.Decode(id)
 	if len(res) == 0 {
-		return fmt.Errorf("invalid id: %s", id)
+		return fmt.Errorf("%w: %s", ErrInvalidID, id)
 	}
 	decodedID := res[0]
 
@@ -212,7 +219,8 @@ func assignField(srcField, dstField reflect.Value) error {
 		}
 
 		return fmt.Errorf(
-			"src type %s is not assignable to dst type %s. %s",
+			"%w: src type %s is not assignable to dst type %s. %s",
+			ErrType,
 			srcField.Type().Name(),
 			dstField.Type().Name(),
 			hint,

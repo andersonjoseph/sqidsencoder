@@ -1,6 +1,7 @@
 package sqidsencoder
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -19,10 +20,10 @@ func TestEncode(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		args    args
-		want    any
-		wantErr bool
+		name string
+		args args
+		want any
+		err  error
 	}{
 		{
 			name: "encoding numeric ID",
@@ -63,7 +64,7 @@ func TestEncode(t *testing.T) {
 				ID       string
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrType,
 		},
 		{
 			name: "passing a non pointer struct as dst returns an error",
@@ -81,7 +82,7 @@ func TestEncode(t *testing.T) {
 				ID       string
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrInvalidInput,
 		},
 		{
 			name: "passing a non struct as src returns an error",
@@ -96,7 +97,7 @@ func TestEncode(t *testing.T) {
 				ID       string
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrInvalidInput,
 		},
 		{
 			name: "passing a dst struct with a encoded field as non string",
@@ -114,7 +115,7 @@ func TestEncode(t *testing.T) {
 				ID       uint64
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrType,
 		},
 		{
 			name: "passing a dst without the decoded property returns an error",
@@ -131,7 +132,7 @@ func TestEncode(t *testing.T) {
 			want: &struct {
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrInvalidInput,
 		},
 		{
 			name: "encoding ID in nested structs",
@@ -176,7 +177,7 @@ func TestEncode(t *testing.T) {
 					Name: "cool item",
 				},
 			},
-			wantErr: false,
+			err: nil,
 		},
 		{
 			name: "ID to encode not int",
@@ -197,7 +198,7 @@ func TestEncode(t *testing.T) {
 				ID       string
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrType,
 		},
 		{
 			name: "encoding slices",
@@ -216,7 +217,7 @@ func TestEncode(t *testing.T) {
 			}{
 				ID: encodeIDsHelper(t, s, []uint64{1, 2, 3}),
 			},
-			wantErr: false,
+			err: nil,
 		},
 		{
 			name: "encoding slice of structs",
@@ -247,7 +248,7 @@ func TestEncode(t *testing.T) {
 					{ID: encodeIDHelper(t, s, 3)},
 				},
 			},
-			wantErr: false,
+			err: nil,
 		},
 	}
 
@@ -261,8 +262,12 @@ func TestEncode(t *testing.T) {
 				t.Log(err)
 			}
 
-			if tt.wantErr != (err != nil) {
-				t.Errorf("Encode error: %s = %v, want %v", tt.name, err, tt.wantErr)
+			if err == nil && err != tt.err {
+				t.Errorf("Test failed: err was expeted to be nil. received: %v", tt.err)
+			}
+
+			if !errors.Is(err, tt.err) {
+				t.Errorf("Test failed: err expeted to be %v. received: %v", tt.err, err)
 			}
 
 			if !reflect.DeepEqual(tt.want, tt.args.dst) {
@@ -284,10 +289,10 @@ func TestDecode(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		args    args
-		want    any
-		wantErr bool
+		name string
+		args args
+		want any
+		err  error
 	}{
 		{
 			name: "decoding numeric ID",
@@ -311,7 +316,7 @@ func TestDecode(t *testing.T) {
 				ID:       1,
 				Username: "andersonjoseph",
 			},
-			wantErr: false,
+			err: nil,
 		},
 		{
 			name: "decoding numeric ID without a sqids tag returns an error",
@@ -329,7 +334,7 @@ func TestDecode(t *testing.T) {
 				ID       uint64
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrType,
 		},
 		{
 			name: "passing a non pointer struct as dst returns an error",
@@ -347,7 +352,7 @@ func TestDecode(t *testing.T) {
 				ID       uint64
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrInvalidInput,
 		},
 		{
 			name: "passing a non struct as src returns an error",
@@ -362,7 +367,7 @@ func TestDecode(t *testing.T) {
 				ID       uint64
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrInvalidInput,
 		},
 		{
 			name: "passing a dst struct with a encoded field as non uint64",
@@ -382,7 +387,7 @@ func TestDecode(t *testing.T) {
 				ID       string
 				Username string
 			}{},
-			wantErr: true,
+			err: ErrType,
 		},
 		{
 			name: "decoding ID in nested structs",
@@ -427,7 +432,7 @@ func TestDecode(t *testing.T) {
 					Name: "cool item",
 				},
 			},
-			wantErr: false,
+			err: nil,
 		},
 		{
 			name: "ID to decode not string",
@@ -444,7 +449,7 @@ func TestDecode(t *testing.T) {
 			want: &struct {
 				ID string
 			}{},
-			wantErr: true,
+			err: ErrType,
 		},
 		{
 			name: "decoding slices",
@@ -463,7 +468,7 @@ func TestDecode(t *testing.T) {
 			}{
 				IDs: []uint64{1, 2, 3},
 			},
-			wantErr: false,
+			err: nil,
 		},
 		{
 			name: "decoding slice of structs",
@@ -494,7 +499,7 @@ func TestDecode(t *testing.T) {
 					{ID: 3},
 				},
 			},
-			wantErr: false,
+			err: nil,
 		},
 	}
 
@@ -508,8 +513,12 @@ func TestDecode(t *testing.T) {
 				t.Log(err)
 			}
 
-			if tt.wantErr != (err != nil) {
-				t.Errorf("Encode error: %s = %v, want %v", tt.name, err, tt.wantErr)
+			if err == nil && err != tt.err {
+				t.Errorf("Test failed: err was expeted to be nil. received: %v", tt.err)
+			}
+
+			if !errors.Is(err, tt.err) {
+				t.Errorf("Test failed: err expeted to be %v. received: %v", tt.err, err)
 			}
 
 			if !reflect.DeepEqual(tt.want, tt.args.dst) {

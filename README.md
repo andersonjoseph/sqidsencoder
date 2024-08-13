@@ -151,10 +151,25 @@ func main() {
 }
 ```
 
-## Notes
+## Error Handling
 
-- The source (`src`) must be a struct.
-- The destination (`dst`) must be a pointer to a struct.
-- Fields in the destination struct must match the names of fields in the source struct.
-- Fields without the `sqids` tag will be copied as-is from source to destination.
-- If a field is present in the source but not in the destination, an error will be returned.
+| Error Name | Returned When |
+|------------|---------------|
+| `ErrInvalidInput` | - Incorrect data structures provided<br>- Missing required fields<br>- Invalid field values |
+| `ErrType` | - Type conversion failures occur<br>- Unexpected types in encoding/decoding operations<br>- Incompatible types in assignments |
+| `ErrInvalidID` | - Malformed IDs<br>- IDs don't match expected patterns<br>|
+
+### Example
+
+```go
+err := someFunction()
+switch {
+case errors.Is(err, ErrInvalidInput):
+    // Handle invalid input
+case errors.Is(err, ErrType):
+    // Handle type mismatch
+case errors.Is(err, ErrInvalidID):
+    // Handle invalid ID
+default:
+    // Handle other errors
+}

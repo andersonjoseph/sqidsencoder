@@ -66,8 +66,8 @@ func (enc sqidsencoder) processStructFields(src any, dst any, op encoderOperatio
 			continue
 		}
 
-		if err := assignField(srcField, dstField, srcType.Field(i).Name); err != nil {
-			return err
+		if err := assignField(srcField, dstField); err != nil {
+			return fmt.Errorf("error while processing field %s: %w", srcType.Field(i).Name, err)
 		}
 	}
 
@@ -124,8 +124,8 @@ func (enc sqidsencoder) processPrimitive(srcField, dstField reflect.Value, op en
 		if srcField.Kind() != reflect.String {
 			return fmt.Errorf("field is not string")
 		}
-
 		return enc.decodeField(dstField, srcField.String())
+
 	default:
 		return fmt.Errorf("unknown operation: %s", op)
 	}
@@ -138,12 +138,7 @@ func (enc sqidsencoder) encodeField(field reflect.Value, id uint64) error {
 		return err
 	}
 
-	if !reflect.TypeOf(encodedID).AssignableTo(field.Type()) {
-		return fmt.Errorf("type uint64 is not assignable to %s", field.Type().Name())
-	}
-
-	field.SetString(encodedID)
-	return nil
+	return assignField(reflect.ValueOf(encodedID), field)
 }
 
 func (enc sqidsencoder) encodeSlice(srcField, dstField reflect.Value) error {
@@ -177,12 +172,7 @@ func (enc sqidsencoder) decodeField(field reflect.Value, id string) error {
 	}
 	decodedID := res[0]
 
-	if !reflect.TypeOf(decodedID).AssignableTo(field.Type()) {
-		return fmt.Errorf("type uint64 is not assignable to %s", field.Type().Name())
-	}
-
-	field.SetUint(decodedID)
-	return nil
+	return assignField(reflect.ValueOf(decodedID), field)
 }
 
 func (enc sqidsencoder) decodeSlice(srcField, dstField reflect.Value) error {
@@ -209,14 +199,23 @@ func (enc sqidsencoder) decodeSlice(srcField, dstField reflect.Value) error {
 	return nil
 }
 
-func assignField(srcField, dstField reflect.Value, fieldName string) error {
+func assignField(srcField, dstField reflect.Value) error {
 	if !srcField.Type().AssignableTo(dstField.Type()) {
+		var hint string
+
+		if srcField.Type().Kind() == reflect.Uint64 && dstField.Type().Kind() == reflect.String {
+			hint = "you may have forgotten to add the tag `sqids:\"encode\"`"
+		}
+
+		if srcField.Type().Kind() == reflect.String && dstField.Type().Kind() == reflect.Uint64 {
+			hint = "you may have forgotten to add the tag `sqids:\"decode\"`"
+		}
+
 		return fmt.Errorf(
-			"field src.%s(%s) is not assignable to dst.%s(%s)",
-			fieldName,
+			"src type %s is not assignable to dst type %s. %s",
 			srcField.Type().Name(),
-			fieldName,
 			dstField.Type().Name(),
+			hint,
 		)
 	}
 

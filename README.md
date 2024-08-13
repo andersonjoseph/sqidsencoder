@@ -2,6 +2,17 @@
 
 `sqidsencoder` is a Go library that provides functionality to encode and decode structs using [sqids](https://github.com/sqids/sqids-go)
 
+⚠️ **IMPORTANT: This library is currently in an unstable state** ⚠️
+
+Please be aware that this library is under active development and is not yet considered stable. As such:
+
+- The API may change at any time without prior notice.
+- Breaking changes may be introduced in any commit or release.
+- Backwards compatibility is not guaranteed between versions.
+- It is not recommended for use in production environments.
+
+We strongly advise against using this library in any critical or production systems. If you choose to use it, please be prepared to adapt your code as the library evolves.
+
 ## Usage
 
 ### Encoding
